@@ -245,23 +245,6 @@ func runArgsForLoadBalancer(cfg *config.Cluster, name string, args []string) ([]
 func getProxyEnv(cfg *config.Cluster) (map[string]string, error) {
 	envs := common.GetProxyEnvs(cfg)
 	// Specifically add the podman network subnets to NO_PROXY if we are using a proxy
-	if len(envs) > 0 {
-		// podman default bridge network is named "bridge" (https://docs.podman.com/network/bridge/#use-the-default-bridge-network)
-		subnets, err := getSubnets("bridge")
-		if err != nil {
-			return nil, err
-		}
-		noProxyList := append(subnets, envs[common.NOProxy])
-		// Add pod and service dns names to no_proxy to allow in cluster
-		// Note: this is best effort based on the default CoreDNS spec
-		// https://github.com/kubernetes/dns/blob/master/docs/specification.md
-		// Any user created pod/service hostnames, namespaces, custom DNS services
-		// are expected to be no-proxied by the user explicitly.
-		noProxyList = append(noProxyList, ".svc", ".svc.cluster", ".svc.cluster.local")
-		noProxyJoined := strings.Join(noProxyList, ",")
-		envs[common.NOProxy] = noProxyJoined
-		envs[strings.ToLower(common.NOProxy)] = noProxyJoined
-	}
 	return envs, nil
 }
 
