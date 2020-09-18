@@ -164,10 +164,10 @@ func commonArgs(cfg *config.Cluster) ([]string, error) {
 func runArgsForNode(node *config.Node, clusterIPFamily config.ClusterIPFamily, name string, args []string) ([]string, error) {
 	// Pre-create anonymous volumes to enable specifying mount options
 	// during container run time
-	varVolume, err := createAnonymousVolume(name)
-	if err != nil {
-		return nil, err
-	}
+	//varVolume, err := createAnonymousVolume(name)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	args = append([]string{
 		"run",
