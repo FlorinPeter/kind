@@ -6,7 +6,7 @@ title: kind
 [kind] is a tool for running local Kubernetes clusters using Docker container "nodes".  
 kind was primarily designed for testing Kubernetes itself, but may be used for local development or CI.
 
-If you have [go] \([1.11+][go-supported]) and [docker] installed `GO111MODULE="on" go get sigs.k8s.io/kind@v0.9.0 && kind create cluster` is all you need!
+If you have [go] \([1.11+][go-supported]) and [docker] installed `GO111MODULE="on" go get sigs.k8s.io/kind@{{< stableVersion >}} && kind create cluster` is all you need!
 
 <img src="images/kind-create-cluster.png" />
 
@@ -83,7 +83,7 @@ See also: our own [contributor guide] and the Kubernetes [community page].
 - kind supports building Kubernetes release builds from source
   - support for make / bash / docker, or bazel, in addition to pre-published builds
 - kind supports Linux, macOS and Windows
-- kind is a [CNCF certified conformant Kubernetes installer](https://landscape.cncf.io/selected=kind)
+- kind is a [CNCF certified conformant Kubernetes installer](https://landscape.cncf.io/?selected=kind)
 
 ### Code of conduct
 
@@ -99,11 +99,11 @@ Participation in the Kubernetes community is governed by the [Kubernetes Code of
 [Go Report Card Badge]: https://goreportcard.com/badge/sigs.k8s.io/kind
 [Go Report Card]: https://goreportcard.com/report/sigs.k8s.io/kind
 [conformance tests]: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/conformance-tests.md
-[packages]: https://github.com/kubernetes-sigs/kind/tree/master/pkg
-[cluster package]: https://github.com/kubernetes-sigs/kind/tree/master/pkg/cluster
-[build package]: https://github.com/kubernetes-sigs/kind/tree/master/pkg/build
-[kind cli]: https://github.com/kubernetes-sigs/kind/tree/master/main.go
-[images]: https://github.com/kubernetes-sigs/kind/tree/master/images
+[packages]: https://github.com/kubernetes-sigs/kind/tree/main/pkg
+[cluster package]: https://github.com/kubernetes-sigs/kind/tree/main/pkg/cluster
+[build package]: https://github.com/kubernetes-sigs/kind/tree/main/pkg/build
+[kind cli]: https://github.com/kubernetes-sigs/kind/tree/main/main.go
+[images]: https://github.com/kubernetes-sigs/kind/tree/main/images
 [kubetest]: https://github.com/kubernetes/test-infra/tree/master/kubetest
 [kubeadm]: https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm/
 [design doc]: ./docs/design/initial

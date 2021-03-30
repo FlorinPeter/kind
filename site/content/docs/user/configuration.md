@@ -36,11 +36,36 @@ To use this config, place the contents in a file `config.yaml` and then run
 
 You can also include a full file path like `kind create cluster --config=/foo/bar/config.yaml`.
 
+The structure of the `Cluster` type is defined by a Go struct, which is described
+[here](https://pkg.go.dev/sigs.k8s.io/kind/pkg/apis/config/v1alpha4#Cluster).
+
+### A Note On CLI Parameters and Configuration Files
+
+Unless otherwise noted, parameters passed to the CLI take precedence over their
+equivalents in a config file. For example, if you invoke:
+
+{{< codeFromInline lang="bash" >}}
+kind create cluster --name my-cluster
+{{< /codeFromInline >}}
+
+The name `my-cluster` will be used regardless of the presence of that value in
+your config file.
+
 ## Cluster-Wide Options
 
 The following high level options are available.
 
 NOTE: not all options are documented yet!  We will fix this with time, PRs welcome!
+
+### Name Your Cluster
+
+You can give your cluster a name by specifying it in your config:
+
+{{< codeFromInline lang="yaml" >}}
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: app-1-cluster
+{{< /codeFromInline >}}
 
 ### Feature Gates
 
@@ -168,6 +193,8 @@ networking:
   kubeProxyMode: "ipvs"
 {{< /codeFromInline >}}
 
+To disable kube-proxy, set the mode to `"none"`.
+
 ### Nodes
 The `kind: Cluster` object has a `nodes` field containing a list of `node`
 objects. If unset this defaults to:
@@ -225,6 +252,11 @@ for persisting data, mounting through code etc.
 
 {{< codeFromFile file="static/examples/config-with-mounts.yaml" lang="yaml" >}}
 
+
+NOTE: If you are using Docker for Mac or Windows check that the hostPath is
+included in the Preferences -> Resources -> File Sharing.
+
+For more information see the [Docker file sharing guide.](https://docs.docker.com/docker-for-mac/#file-sharing)
 
 ### Extra Port Mappings
 
@@ -302,14 +334,14 @@ spec:
     app: foo
 {{< /codeFromInline >}}
 
-[Ingress Guide]: ./../ingress
+[Ingress Guide]: /docs/user/ingress
 
 ### Kubeadm Config Patches
 
-KIND uses [`kubeadm`](./../../design/principles/#leverage-existing-tooling) 
+KIND uses [`kubeadm`](/docs/design/principles/#leverage-existing-tooling) 
 to configure cluster nodes.
-Formally  KIND runs `kubeadm init` on the first control-plane node 
-which can be customized by using the kubeadm
+
+Formally  KIND runs `kubeadm init` on the first control-plane node, we can customize the flags by using the kubeadm
 [InitConfiguration](https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-init/#config-file) 
 ([spec](https://godoc.org/k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta2#InitConfiguration))
 
@@ -326,12 +358,26 @@ nodes:
         node-labels: "my-label=true"
 {{< /codeFromInline >}}
 
+If you want to do more customization, there are four configuration types available during `kubeadm init`: `InitConfiguration`, `ClusterConfiguration`, `KubeProxyConfiguration`, `KubeletConfiguration`. For example, we could override the apiserver flags by using the kubeadm [ClusterConfiguration](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/control-plane-flags/) ([spec](https://pkg.go.dev/k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta2#ClusterConfiguration)):
+
+{{< codeFromInline lang="yaml" >}}
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+        extraArgs:
+          enable-admission-plugins: NodeRestriction,MutatingAdmissionWebhook,ValidatingAdmissionWebhook
+{{< /codeFromInline >}}
+
 On every additional node configured in the KIND cluster, 
 worker or control-plane (in HA mode),
 KIND runs `kubeadm join` which can be configured using the 
 [JoinConfiguration](https://kubernetes.io/docs/reference/setup-tools/kubeadm/kubeadm-join/#config-file)
 ([spec](https://godoc.org/k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta2#JoinConfiguration))
-
 
 {{< codeFromInline lang="yaml" >}}
 kind: Cluster

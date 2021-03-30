@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   docker:
@@ -27,7 +27,14 @@ jobs:
       - name: Boot Fedora
         run: |
           ln -sf ./hack/ci/Vagrantfile ./Vagrantfile
-          vagrant up
+          # Retry if it fails (download.fedoraproject.org returns 404 sometimes)
+          # Spend up to 10 seconds on this
+          for i in {1..4}; do
+            if vagrant up; then
+              break
+            fi
+            sleep $i
+          done
 
       - name: Show provider info
         run: |

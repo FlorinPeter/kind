@@ -46,7 +46,7 @@ type ConfigData struct {
 
 	// ControlPlane flag specifies the node belongs to the control plane
 	ControlPlane bool
-	// The main IP address of the node
+	// The IP address or comma separated list IP addresses of of the node
 	NodeAddress string
 	// The name for the node (not the address)
 	NodeName string
@@ -70,15 +70,24 @@ type ConfigData struct {
 	// IPv4 values take precedence over IPv6 by default, if true set IPv6 default values
 	IPv6 bool
 
+	// Labels are the labels, in the format "key1=val1,key2=val2", with which the respective node will be labeled
+	NodeLabels string
+
 	// DerivedConfigData is populated by Derive()
 	// These auto-generated fields are available to Config templates,
 	// but not meant to be set by hand
 	DerivedConfigData
+
+	// Provider is running with rootless mode, so kube-proxy needs to be configured
+	// not to fail on sysctl error.
+	RootlessProvider bool
 }
 
 // DerivedConfigData fields are automatically derived by
 // ConfigData.Derive if they are not specified / zero valued
 type DerivedConfigData struct {
+	// AdvertiseAddress is the first address in NodeAddress
+	AdvertiseAddress string
 	// DockerStableTag is automatically derived from KubernetesVersion
 	DockerStableTag string
 	// SortedFeatureGateKeys allows us to iterate FeatureGates deterministically
@@ -91,6 +100,9 @@ type DerivedConfigData struct {
 
 // Derive automatically derives DockerStableTag if not specified
 func (c *ConfigData) Derive() {
+	// get the first address to use it as the API advertised address
+	c.AdvertiseAddress = strings.Split(c.NodeAddress, ",")[0]
+
 	if c.DockerStableTag == "" {
 		c.DockerStableTag = strings.Replace(c.KubernetesVersion, "+", "_", -1)
 	}
@@ -187,7 +199,7 @@ bootstrapTokens:
 # we use a well know port for making the API server discoverable inside docker network. 
 # from the host machine such port will be accessible via a random local port instead.
 localAPIEndpoint:
-  advertiseAddress: "{{ .NodeAddress }}"
+  advertiseAddress: "{{ .AdvertiseAddress }}"
   bindPort: {{.APIBindPort}}
 nodeRegistration:
   criSocket: "/run/containerd/containerd.sock"
@@ -204,7 +216,7 @@ metadata:
 {{ if .ControlPlane -}}
 controlPlane:
   localAPIEndpoint:
-    advertiseAddress: "{{ .NodeAddress }}"
+    advertiseAddress: "{{ .AdvertiseAddress }}"
     bindPort: {{.APIBindPort}}
 {{- end }}
 nodeRegistration:
@@ -223,6 +235,11 @@ apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
 metadata:
   name: config
+# explicitly set default cgroup driver
+# unblocks https://github.com/kubernetes/kubernetes/pull/99471
+# TODO: consider switching to systemd instead
+# tracked in: https://github.com/kubernetes-sigs/kind/issues/1726
+cgroupDriver: cgroupfs
 # configure ipv6 addresses in IPv6 mode
 {{ if .IPv6 -}}
 address: "::"
@@ -240,6 +257,7 @@ evictionHard:
 {{ range $key := .SortedFeatureGateKeys }}
   "{{ $key }}": {{$.FeatureGates $key }}
 {{end}}{{end}}
+{{if ne .KubeProxyMode "None"}}
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
@@ -252,6 +270,7 @@ mode: "{{ .KubeProxyMode }}"
 {{end}}{{end}}
 iptables:
   minSyncPeriod: 1s
+{{end}}
 `
 
 // ConfigTemplateBetaV2 is the kubeadm config template for API version v1beta2
@@ -307,7 +326,7 @@ bootstrapTokens:
 # we use a well know port for making the API server discoverable inside docker network. 
 # from the host machine such port will be accessible via a random local port instead.
 localAPIEndpoint:
-  advertiseAddress: "{{ .NodeAddress }}"
+  advertiseAddress: "{{ .AdvertiseAddress }}"
   bindPort: {{.APIBindPort}}
 nodeRegistration:
   criSocket: "unix:///run/containerd/containerd.sock"
@@ -315,6 +334,7 @@ nodeRegistration:
     fail-swap-on: "false"
     node-ip: "{{ .NodeAddress }}"
     provider-id: "kind://{{.NodeProvider}}/{{.ClusterName}}/{{.NodeName}}"
+    node-labels: "{{ .NodeLabels }}"
 ---
 # no-op entry that exists solely so it can be patched
 apiVersion: kubeadm.k8s.io/v1beta2
@@ -324,7 +344,7 @@ metadata:
 {{ if .ControlPlane -}}
 controlPlane:
   localAPIEndpoint:
-    advertiseAddress: "{{ .NodeAddress }}"
+    advertiseAddress: "{{ .AdvertiseAddress }}"
     bindPort: {{.APIBindPort}}
 {{- end }}
 nodeRegistration:
@@ -333,6 +353,7 @@ nodeRegistration:
     fail-swap-on: "false"
     node-ip: "{{ .NodeAddress }}"
     provider-id: "kind://{{.NodeProvider}}/{{.ClusterName}}/{{.NodeName}}"
+    node-labels: "{{ .NodeLabels }}"
 discovery:
   bootstrapToken:
     apiServerEndpoint: "{{ .ControlPlaneEndpoint }}"
@@ -343,6 +364,11 @@ apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
 metadata:
   name: config
+# explicitly set default cgroup driver
+# unblocks https://github.com/kubernetes/kubernetes/pull/99471
+# TODO: consider switching to systemd instead
+# tracked in: https://github.com/kubernetes-sigs/kind/issues/1726
+cgroupDriver: cgroupfs
 # configure ipv6 addresses in IPv6 mode
 {{ if .IPv6 -}}
 address: "::"
@@ -360,6 +386,7 @@ evictionHard:
 {{ range $key := .SortedFeatureGateKeys }}
   "{{ $key }}": {{ index $.FeatureGates $key }}
 {{end}}{{end}}
+{{if ne .KubeProxyMode "None"}}
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
 kind: KubeProxyConfiguration
@@ -372,6 +399,14 @@ mode: "{{ .KubeProxyMode }}"
 {{end}}{{end}}
 iptables:
   minSyncPeriod: 1s
+{{if .RootlessProvider}}conntrack:
+# Skip setting sysctl value "net.netfilter.nf_conntrack_max"
+  maxPerCore: 0
+# Skip setting "net.netfilter.nf_conntrack_tcp_timeout_established"
+  tcpEstablishedTimeout: 0s
+# Skip setting "net.netfilter.nf_conntrack_tcp_timeout_close"
+  tcpCloseWaitTimeout: 0s
+{{end}}{{end}}
 `
 
 // Config returns a kubeadm config generated from config data, in particular
@@ -390,6 +425,9 @@ func Config(data ConfigData) (config string, err error) {
 	// assume the latest API version, then fallback if the k8s version is too low
 	templateSource := ConfigTemplateBetaV2
 	if ver.LessThan(version.MustParseSemantic("v1.15.0")) {
+		if data.RootlessProvider {
+			return "", errors.Errorf("version %q is not compatible with rootless provider", ver)
+		}
 		templateSource = ConfigTemplateBetaV1
 	}
 
