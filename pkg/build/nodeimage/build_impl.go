@@ -55,7 +55,7 @@ func (c *buildContext) Build() (err error) {
 func (c *buildContext) buildImage(bits kube.Bits) error {
 	// create build container
 	// NOTE: we are using docker run + docker commit so we can install
-	// debians without permanently copying them into the image.
+	// debian packages without permanently copying them into the image.
 	// if docker gets proper squash support, we can rm them instead
 	// This also allows the KubeBit implementations to perform programmatic
 	// install in the image
@@ -88,7 +88,7 @@ func (c *buildContext) buildImage(bits kube.Bits) error {
 
 	// copy artifacts in
 	for _, binary := range bits.BinaryPaths() {
-		// TODO: probably should be /usr/local/bin, but the existing kublet
+		// TODO: probably should be /usr/local/bin, but the existing kubelet
 		// service file expects /usr/bin/kubelet
 		nodePath := "/usr/bin/" + path.Base(binary)
 		if err := exec.Command("docker", "cp", binary, containerID+":"+nodePath).Run(); err != nil {
@@ -166,7 +166,7 @@ func (c *buildContext) prePullImages(bits kube.Bits, dir, containerID string) ([
 
 	// get the Kubernetes version we installed on the node
 	// we need this to ask kubeadm what images we need
-	rawVersion, err := exec.CombinedOutputLines(cmder.Command("cat", kubernetesVersionLocation))
+	rawVersion, err := exec.OutputLines(cmder.Command("cat", kubernetesVersionLocation))
 	if err != nil {
 		c.logger.Errorf("Image build Failed! Failed to get Kubernetes version: %v", err)
 		return nil, err

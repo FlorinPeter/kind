@@ -16,7 +16,7 @@
 # NOTE: tentatively follow upstream kubernetes go version based on k8s in go.mod
 FROM golang:1.13
 WORKDIR /go/src
-# make deps fetching cachable
+# make deps fetching cacheable
 COPY go.mod go.sum .
 RUN go mod download
 # build
@@ -24,6 +24,6 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o ./kindnetd ./cmd/kindnetd
 
 # build real kindnetd image
-FROM k8s.gcr.io/build-image/debian-iptables:v12.1.0
+FROM k8s.gcr.io/build-image/debian-iptables:buster-v1.3.0
 COPY --from=0 --chown=root:root ./go/src/kindnetd /bin/kindnetd
 CMD ["/bin/kindnetd"]

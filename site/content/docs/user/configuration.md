@@ -5,18 +5,12 @@ menu:
     parent: "user"
     identifier: "user-configuration"
     weight: 3
+toc: true
+description: |-
+  This guide covers how to configure KIND cluster creation.
+  
+  We know this is currently a bit lacking and will expand it over time - PRs welcome!
 ---
-
-<h1>⚠️ This page is a stub! We're working on it! ⚠️ </h1>
-
-# Configuration
-
-This guide covers how to configure KIND cluster creation.
-
-We know this is currently a bit lacking right now and will expand it over time - PRs welcome!
-
-<!--TODO: TOC?-->
-
 ## Getting Started
 
 To configure kind cluster creation, you will need to create a [YAML] config file.
@@ -47,6 +41,34 @@ You can also include a full file path like `kind create cluster --config=/foo/ba
 The following high level options are available.
 
 NOTE: not all options are documented yet!  We will fix this with time, PRs welcome!
+
+### Feature Gates
+
+Kubernetes [feature gates] can be enabled cluster-wide across all Kubernetes
+components with the following config:
+
+{{< codeFromInline lang="yaml" >}}
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  # any feature gate can be enabled here with "Name": true
+  # or disabled here with "Name": false
+  # not all feature gates are tested, however
+  "CSIMigration": true
+{{< /codeFromInline >}}
+
+### Runtime Config
+
+Kubernetes API server runtime-config can be toggled using the `runtimeConfig`
+key, which maps to the `--runtime-config` [kube-apiserver flag](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/).
+This may be used to e.g. disable beta / alpha APIs.
+
+{{< codeFromInline lang="yaml" >}}
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+runtimeConfig:
+  "api/alpha": "false"
+{{< /codeFromInline >}}
 
 ### Networking
 
@@ -216,6 +238,69 @@ You may also want to see the [Ingress Guide].
 
 {{< codeFromFile file="static/examples/config-with-port-mapping.yaml" lang="yaml" >}}
 
+An example http pod mapping host ports to a container port.
+
+{{< codeFromInline lang="yaml">}}
+kind: Pod
+apiVersion: v1
+metadata:
+  name: foo
+spec:
+  containers:
+  - name: foo
+    image: hashicorp/http-echo:0.2.3
+    args:
+    - "-text=foo"
+    ports:
+    - containerPort: 5678
+      hostPort: 80
+{{< /codeFromInline >}}
+
+#### NodePort with Port Mappings
+
+To use port mappings with `NodePort`, the kind node `containerPort` and the service `nodePort` needs to be equal.
+
+{{< codeFromInline lang="yaml" >}}
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30950
+    hostPort: 80
+{{< /codeFromInline >}}
+
+And then set `nodePort` to be 30950.
+
+{{< codeFromInline lang="yaml">}}
+kind: Pod
+apiVersion: v1
+metadata:
+  name: foo
+  labels:
+    app: foo
+spec:
+  containers:
+  - name: foo
+    image: hashicorp/http-echo:0.2.3
+    args:
+    - "-text=foo"
+    ports:
+    - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foo
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    nodePort: 30950
+    port: 5678
+  selector:
+    app: foo
+{{< /codeFromInline >}}
 
 [Ingress Guide]: ./../ingress
 
@@ -271,3 +356,4 @@ nodes:
 {{< /codeFromInline >}}
 
 [YAML]: https://yaml.org/
+[feature gates]: https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
